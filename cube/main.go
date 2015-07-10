@@ -15,15 +15,20 @@ import (
 type Shape struct {
 	buf     gl.Buffer
 	texture gl.Texture
+
+	coordsPerVertex    int
+	texCoordsPerVertex int
+	vertexCount        int
 }
 
 type Shader struct {
 	program      gl.Program
 	vertCoord    gl.Attrib
 	vertTexCoord gl.Attrib
-	projection   gl.Uniform
-	view         gl.Uniform
-	model        gl.Uniform
+
+	projection gl.Uniform
+	view       gl.Uniform
+	model      gl.Uniform
 }
 
 type Engine struct {
@@ -40,6 +45,10 @@ func (e *Engine) Start() {
 	if err != nil {
 		panic(fmt.Sprintln("LoadProgram failed:", err))
 	}
+
+	e.shape.coordsPerVertex = 3
+	e.shape.texCoordsPerVertex = 2
+	e.shape.vertexCount = len(cubeData) / (e.shape.coordsPerVertex + e.shape.texCoordsPerVertex)
 
 	e.shape.buf = gl.CreateBuffer()
 	gl.BindBuffer(gl.ARRAY_BUFFER, e.shape.buf)
@@ -63,6 +72,7 @@ func (e *Engine) Start() {
 func (e *Engine) Stop() {
 	gl.DeleteProgram(e.shader.program)
 	gl.DeleteBuffer(e.shape.buf)
+	gl.DeleteTexture(e.shape.texture)
 }
 
 func (e *Engine) Config(new, old event.Config) {
@@ -85,89 +95,37 @@ func (e *Engine) Draw(c event.Config) {
 
 	gl.UseProgram(e.shader.program)
 
-	m := mgl.Perspective(0.785, float32(c.Width/c.Height), 0.1, 10.0)
+	// Setup MVP
+	var m mgl.Mat4
+	m = mgl.Perspective(0.785, float32(c.Width/c.Height), 0.1, 10.0)
 	gl.UniformMatrix4fv(e.shader.projection, m[:])
 
-	eye := mgl.Vec3{3, 3, 3}
-	center := mgl.Vec3{0, 0, 0}
-	up := mgl.Vec3{0, 1, 0}
-
-	m = mgl.LookAtV(eye, center, up)
+	m = mgl.LookAtV(
+		mgl.Vec3{3, 3, 3}, // eye
+		mgl.Vec3{0, 0, 0}, // center
+		mgl.Vec3{0, 1, 0}, // up
+	)
 	gl.UniformMatrix4fv(e.shader.view, m[:])
 
 	m = mgl.HomogRotate3D(float32(since.Seconds()), mgl.Vec3{0, 1, 0})
 	gl.UniformMatrix4fv(e.shader.model, m[:])
 
+	// Draw our shape
 	gl.BindBuffer(gl.ARRAY_BUFFER, e.shape.buf)
 
-	coordsPerVertex := 3
-	texCoordsPerVertex := 2
-	vertexCount := len(cubeData) / (coordsPerVertex + texCoordsPerVertex)
-
 	gl.EnableVertexAttribArray(e.shader.vertCoord)
-	gl.VertexAttribPointer(e.shader.vertCoord, coordsPerVertex, gl.FLOAT, false, 20, 0) // 4 bytes in float, 5 values per vertex
+	gl.VertexAttribPointer(e.shader.vertCoord, e.shape.coordsPerVertex, gl.FLOAT, false, 20, 0) // 4 bytes in float, 5 values per vertex
 
 	gl.EnableVertexAttribArray(e.shader.vertTexCoord)
-	gl.VertexAttribPointer(e.shader.vertTexCoord, texCoordsPerVertex, gl.FLOAT, false, 20, 12)
+	gl.VertexAttribPointer(e.shader.vertTexCoord, e.shape.texCoordsPerVertex, gl.FLOAT, false, 20, 12)
 
 	gl.BindTexture(gl.TEXTURE_2D, e.shape.texture)
 
-	gl.DrawArrays(gl.TRIANGLES, 0, vertexCount)
+	gl.DrawArrays(gl.TRIANGLES, 0, e.shape.vertexCount)
 
 	gl.DisableVertexAttribArray(e.shader.vertCoord)
 
 	debug.DrawFPS(c)
-}
-
-var cubeData = []float32{
-	//  X, Y, Z, U, V
-	// Bottom
-	-1.0, -1.0, -1.0, 0.0, 0.0,
-	1.0, -1.0, -1.0, 1.0, 0.0,
-	-1.0, -1.0, 1.0, 0.0, 1.0,
-	1.0, -1.0, -1.0, 1.0, 0.0,
-	1.0, -1.0, 1.0, 1.0, 1.0,
-	-1.0, -1.0, 1.0, 0.0, 1.0,
-
-	// Top
-	-1.0, 1.0, -1.0, 0.0, 0.0,
-	-1.0, 1.0, 1.0, 0.0, 1.0,
-	1.0, 1.0, -1.0, 1.0, 0.0,
-	1.0, 1.0, -1.0, 1.0, 0.0,
-	-1.0, 1.0, 1.0, 0.0, 1.0,
-	1.0, 1.0, 1.0, 1.0, 1.0,
-
-	// Front
-	-1.0, -1.0, 1.0, 1.0, 0.0,
-	1.0, -1.0, 1.0, 0.0, 0.0,
-	-1.0, 1.0, 1.0, 1.0, 1.0,
-	1.0, -1.0, 1.0, 0.0, 0.0,
-	1.0, 1.0, 1.0, 0.0, 1.0,
-	-1.0, 1.0, 1.0, 1.0, 1.0,
-
-	// Back
-	-1.0, -1.0, -1.0, 0.0, 0.0,
-	-1.0, 1.0, -1.0, 0.0, 1.0,
-	1.0, -1.0, -1.0, 1.0, 0.0,
-	1.0, -1.0, -1.0, 1.0, 0.0,
-	-1.0, 1.0, -1.0, 0.0, 1.0,
-	1.0, 1.0, -1.0, 1.0, 1.0,
-
-	// Left
-	-1.0, -1.0, 1.0, 0.0, 1.0,
-	-1.0, 1.0, -1.0, 1.0, 0.0,
-	-1.0, -1.0, -1.0, 0.0, 0.0,
-	-1.0, -1.0, 1.0, 0.0, 1.0,
-	-1.0, 1.0, 1.0, 1.0, 1.0,
-	-1.0, 1.0, -1.0, 1.0, 0.0,
-
-	// Right
-	1.0, -1.0, 1.0, 1.0, 1.0,
-	1.0, -1.0, -1.0, 1.0, 0.0,
-	1.0, 1.0, -1.0, 0.0, 0.0,
-	1.0, -1.0, 1.0, 1.0, 1.0,
-	1.0, 1.0, -1.0, 0.0, 0.0,
-	1.0, 1.0, 1.0, 0.0, 1.0,
 }
 
 func main() {
