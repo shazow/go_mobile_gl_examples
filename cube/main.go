@@ -119,6 +119,7 @@ func (e *Engine) Draw(c event.Config) {
 	gl.EnableVertexAttribArray(e.shader.vertTexCoord)
 	gl.VertexAttribPointer(e.shader.vertTexCoord, e.shape.texCoordsPerVertex, gl.FLOAT, false, 20, 12)
 
+	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, e.shape.texture)
 
 	gl.DrawArrays(gl.TRIANGLES, 0, e.shape.vertexCount)
