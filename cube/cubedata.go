@@ -3,7 +3,7 @@ package main
 // TODO: Load this from an .obj file in the asset repository?
 
 var cubeData = []float32{
-	//  X, Y, Z, U, V, Normals
+	//  X, Y, Z, TU, TV, NX, NY, NZ
 	// Bottom
 	-1.0, -1.0, -1.0, 0.0, 0.0, 0.0, -1.0, 0.0,
 	1.0, -1.0, -1.0, 1.0, 0.0, 0.0, -1.0, 0.0,

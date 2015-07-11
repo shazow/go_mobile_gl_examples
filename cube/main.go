@@ -27,9 +27,10 @@ type Shader struct {
 	vertNormal   gl.Attrib
 	vertTexCoord gl.Attrib
 
-	projection gl.Uniform
-	view       gl.Uniform
-	model      gl.Uniform
+	projection   gl.Uniform
+	view         gl.Uniform
+	model        gl.Uniform
+	normalMatrix gl.Uniform
 
 	lightPosition    gl.Uniform
 	lightIntensities gl.Uniform
@@ -44,6 +45,8 @@ type Engine struct {
 
 func (e *Engine) Start() {
 	var err error
+
+	fmt.Println("Loading shaders...")
 
 	e.shader.program, err = LoadProgram("shader.v.glsl", "shader.f.glsl")
 	if err != nil {
@@ -64,9 +67,12 @@ func (e *Engine) Start() {
 	e.shader.projection = gl.GetUniformLocation(e.shader.program, "projection")
 	e.shader.view = gl.GetUniformLocation(e.shader.program, "view")
 	e.shader.model = gl.GetUniformLocation(e.shader.program, "model")
+	e.shader.normalMatrix = gl.GetUniformLocation(e.shader.program, "normalMatrix")
 
 	e.shader.lightIntensities = gl.GetUniformLocation(e.shader.program, "lightIntensities")
 	e.shader.lightPosition = gl.GetUniformLocation(e.shader.program, "lightPosition")
+
+	fmt.Println("Loading textures...")
 
 	e.shape.texture, err = LoadTexture("gopher.png")
 	if err != nil {
@@ -74,6 +80,8 @@ func (e *Engine) Start() {
 	}
 
 	e.started = time.Now()
+
+	fmt.Println("Starting.")
 }
 
 func (e *Engine) Stop() {
@@ -114,12 +122,17 @@ func (e *Engine) Draw(c event.Config) {
 	)
 	gl.UniformMatrix4fv(e.shader.view, m[:])
 
+	modelView := m
+
 	m = mgl.HomogRotate3D(float32(since.Seconds()), mgl.Vec3{0, 1, 0})
 	gl.UniformMatrix4fv(e.shader.model, m[:])
 
+	m = m.Mul4(modelView).Inv().Transpose()
+	gl.UniformMatrix4fv(e.shader.normalMatrix, m[:])
+
 	// Light
-	gl.Uniform3fv(e.shader.lightIntensities, []float32{0, 1, 0})
-	gl.Uniform3fv(e.shader.lightPosition, []float32{0, 0, 0})
+	gl.Uniform3fv(e.shader.lightIntensities, []float32{1, 1, 1})
+	gl.Uniform3fv(e.shader.lightPosition, []float32{1, 1, 1})
 
 	// Draw our shape
 	gl.BindBuffer(gl.ARRAY_BUFFER, e.shape.buf)

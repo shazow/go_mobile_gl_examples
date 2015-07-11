@@ -1,6 +1,6 @@
 #version 100
 
-precision highp float;
+precision mediump float;
 
 uniform mat4 model;
 uniform sampler2D tex;
@@ -12,55 +12,32 @@ varying vec2 fragTexCoord;
 varying vec3 fragNormal;
 varying vec3 fragCoord;
 
-
-
-mat3 transpose(mat3 m) {
-    return mat3(
-        m[0][0], m[1][0], m[2][0],
-        m[0][1], m[1][1], m[2][1],
-        m[0][2], m[1][2], m[2][2]
-        );
-}
-
-
-float determinant(mat3 m) {
-    return m[0][0]*( m[1][1]*m[2][2] - m[2][1]*m[1][2])
-         - m[1][0]*( m[0][1]*m[2][2] - m[2][1]*m[0][2])
-         + m[2][0]*( m[0][1]*m[1][2] - m[1][1]*m[0][2]);
-}
-
-mat3 inverse(mat3 m) {
-    float d = 1.0 / determinant(m) ;
-    return d * mat3(
-        m[2][2]*m[1][1] - m[1][2]*m[2][1],
-        m[1][2]*m[2][0] - m[2][2]*m[1][0],
-        m[2][1]*m[1][0] - m[1][1]*m[2][0],
-
-        m[0][2]*m[2][1] - m[2][2]*m[0][1],
-        m[2][2]*m[0][0] - m[0][2]*m[2][0],
-        m[0][1]*m[2][0] - m[2][1]*m[0][0],
-
-        m[1][2]*m[0][1] - m[0][2]*m[1][1],
-        m[0][2]*m[1][0] - m[1][2]*m[0][0],
-        m[1][1]*m[0][0] - m[0][1]*m[1][0]
-        );
-}
+const int mode = 1;
+const vec3 diffuseColor = vec3(0.5, 0.0, 0.0);
+const float shininess = 16.0;
+const float screenGamma = 2.2; // Assume the monitor is calibrated to the sRGB color space
 
 void main() {
-    // Calculate normal in world coordinates
-    mat3 normalMatrix = transpose(inverse(mat3(model)));
-    vec3 normal = normalize(normalMatrix * fragNormal);
+    vec3 normal = normalize(fragNormal);
+    vec3 lightDir = normalize(lightPosition - fragCoord);
 
-    // Calculate the location of this fragment (pixel) in world coordinates
-    vec3 fragPosition = vec3(model * vec4(fragCoord, 1));
+    float lambertian = max(dot(lightDir,normal), 0.0);
+    float specular = 0.0;
 
-    // Calculate the vector from this pixels surface to the light source
-    vec3 surfaceToLight = lightPosition - fragPosition;
-
-    // Calculate the cosine of the angle of incidence
-    float brightness = dot(normal, surfaceToLight) / (length(surfaceToLight) * length(normal));
-    brightness = clamp(brightness, 0.0, 1.0);
+    if (lambertian > 0.0) {
+        vec3 viewDir = normalize(-fragCoord);
+        vec3 halfDir = normalize(lightDir + viewDir);
+        float specAngle = max(dot(halfDir, normal), 0.0);
+        specular = pow(specAngle, shininess);
+    }
 
     vec4 surfaceColor = texture2D(tex, fragTexCoord);
-    gl_FragColor = vec4(brightness * lightIntensities * surfaceColor.rgb, surfaceColor.a);
+    vec3 colorLinear = surfaceColor.rgb + lambertian * diffuseColor + specular * lightIntensities;
+
+    // apply gamma correction (assume ambientColor, diffuseColor and lightIntensities
+    // have been linearized, i.e. have no gamma correction in them)
+    vec3 colorGammaCorrected = pow(colorLinear, vec3(1.0/screenGamma));
+
+    // use the gamma corrected color in the fragment
+    gl_FragColor = vec4(colorGammaCorrected, surfaceColor.a);
 }
