@@ -7,7 +7,6 @@ import (
 	mgl "github.com/go-gl/mathgl/mgl32"
 	"golang.org/x/mobile/app"
 	"golang.org/x/mobile/event"
-	"golang.org/x/mobile/exp/app/debug"
 	"golang.org/x/mobile/geom"
 	"golang.org/x/mobile/gl"
 )
@@ -126,7 +125,7 @@ func (e *Engine) Draw(c event.Config) {
 
 	gl.DisableVertexAttribArray(e.shader.vertCoord)
 
-	debug.DrawFPS(c)
+	//debug.DrawFPS(c)
 }
 
 func main() {
